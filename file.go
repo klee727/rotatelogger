@@ -87,18 +87,32 @@ func (rotator *Rotator) switchFile(now time.Time) error {
 	return nil
 }
 
-func (rotator *Rotator) Write(p []byte) (n int, err error) {
+func (rotator *Rotator) TryRotate() error {
 	now := time.Now()
 	if now.Unix() >= rotator.nextRotationTime {
 		rotator.fileLock.Lock()
 		defer rotator.fileLock.Unlock()
 		if now.Unix() >= rotator.nextRotationTime {
 			if err := rotator.switchFile(now); err != nil {
-				return 0, err
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+func (rotator *Rotator) Write(p []byte) (n int, err error) {
+	if err := rotator.TryRotate(); err != nil {
+		return 0, nil
+	}
 	return rotator.internalFile.Write(p)
+}
+
+func (rotator *Rotator) WriteString(p string) (n int, err error) {
+	if err := rotator.TryRotate(); err != nil {
+		return 0, nil
+	}
+	return rotator.internalFile.WriteString(p)
 }
 
 func (rotator *Rotator) Close() {
